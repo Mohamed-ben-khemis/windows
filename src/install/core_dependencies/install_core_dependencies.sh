@@ -11,15 +11,14 @@ apt-get update && \
 apt-get dist-upgrade -y && \
 apt-get install -y --no-install-recommends \
 coreutils iputils-ping sudo curl  zenity xz-utils apt-utils \
-dbus-x11 x11-utils alsa-utils  libgl1-mesa-dri tigervnc-standalone-server xpra \
-systemd systemd-sysv pulseaudio pavucontrol firefox  expect-dev mingetty   && \
+dbus-x11 x11-utils alsa-utils  libgl1-mesa-dri tigervnc-standalone-server \
+systemd systemd-sysv pulseaudio pavucontrol   expect-dev mingetty   && \
 apt-get autoclean -y && \
 apt-get autoremove -y && \
 rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Remove unwanted systemd services and targets
-cd /usr/lib/systemd/system/sysinit.target.wants/ && \
-ls | grep -v systemd-tmpfiles-setup | xargs rm -f $1 && \
+
 rm -f /usr/lib/systemd/system/multi-user.target.wants/* \
 /etc/systemd/system/*.wants/* \
 /usr/lib/systemd/system/local-fs.target.wants/* \

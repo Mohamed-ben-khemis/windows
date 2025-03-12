@@ -6,7 +6,9 @@ COPY --from=qemux/qemu:6.20 / /
 ARG DEBCONF_NOWARNINGS="yes"
 ARG DEBIAN_FRONTEND="noninteractive"
 ARG DEBCONF_NONINTERACTIVE_SEEN="true"
-ENV INST_SCRIPTS=/dockerstartup/install
+ENV INST_SCRIPTS=/dockerstartup/install \ 
+    STARTUPDIR=/dockerstartup \ 
+    DESKTOP_PACKAGE=xfce4
 
 ### Install core dependencies
 COPY ./src/install/core_dependencies $INST_SCRIPTS/core_dependencies/
@@ -43,8 +45,7 @@ ADD --chmod=664 https://github.com/qemus/virtiso-whql/releases/download/v1.9.45-
 RUN chmod +x /usr/local/sbin/init && chmod +x /usr/local/sbin/fakegetty \
   && systemctl --user --global enable display.service \
   && systemctl enable user-init \
-  && systemctl --user --global enable pulseaudio \
-  && systemctl enable promtail.service 
+  && systemctl --user --global enable pulseaudio 
 
 
 WORKDIR /root
@@ -66,18 +67,9 @@ COPY systemd/ui-config.service /etc/systemd/user/ui-config.service
 COPY  ./src/xfce/  /
 COPY systemd/${DESKTOP_PACKAGE}.service /etc/systemd/user/desktop.service
 
-# Set up background and icon images
-ARG BG_IMG=bg_focal.png
-RUN mkdir -p /usr/share/extra/backgrounds/
-RUN mkdir -p /usr/share/extra/icons/
-ADD /src/images/gomydesk_logo.png /usr/share/extra/backgrounds/gomydesk_logo.png
-ADD /src/images/bg_focal.png  /usr/share/extra/backgrounds/bg_focal.png
-ADD /src/images/$BG_IMG  /usr/share/extra/backgrounds/bg_default.png
-ADD /src/images/icon_ubuntu.png /usr/share/extra/icons/icon_ubuntu.png
-ADD /src/images/icon_ubuntu.png /usr/share/extra/icons/icon_default.png
 
-# Copy over the maximization script to our startup dir for use by app images.
-COPY ./src/install/maximize_script $STARTUPDIR/
+
+
 
 RUN systemctl --user --global enable desktop.service \
   && systemctl disable display-manager \
