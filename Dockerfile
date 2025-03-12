@@ -6,6 +6,16 @@ COPY --from=qemux/qemu:6.20 / /
 ARG DEBCONF_NOWARNINGS="yes"
 ARG DEBIAN_FRONTEND="noninteractive"
 ARG DEBCONF_NONINTERACTIVE_SEEN="true"
+ENV INST_SCRIPTS=/dockerstartup/install
+
+### Install core dependencies
+COPY ./src/install/core_dependencies $INST_SCRIPTS/core_dependencies/
+RUN bash $INST_SCRIPTS/core_dependencies/install_core_dependencies.sh && rm -rf $INST_SCRIPTS/core_dependencies/
+COPY ./src/install/xfce $INST_SCRIPTS/xfce/
+RUN bash $INST_SCRIPTS/xfce/install_xfce_ui.sh && rm -rf $INST_SCRIPTS/xfce/ \
+    && apt-get autoclean -y \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN set -eu && \
     apt-get update && \
@@ -28,15 +38,52 @@ RUN set -eu && \
 
 COPY --chmod=755 ./src /run/
 COPY --chmod=755 ./assets /run/assets
-
+COPY rootfs /
 ADD --chmod=664 https://github.com/qemus/virtiso-whql/releases/download/v1.9.45-0/virtio-win-1.9.45.tar.xz /drivers.txz
+RUN chmod +x /usr/local/sbin/init && chmod +x /usr/local/sbin/fakegetty \
+  && systemctl --user --global enable display.service \
+  && systemctl enable user-init \
+  && systemctl --user --global enable pulseaudio \
+  && systemctl enable promtail.service 
+
+
+WORKDIR /root
+VOLUME ["/sys/fs/cgroup"]
+ENTRYPOINT ["/usr/local/sbin/init"]
 
 FROM dockurr/windows-arm:${VERSION_ARG} AS build-arm64
 FROM build-${TARGETARCH}
 
 ARG VERSION_ARG="0.00"
 RUN echo "$VERSION_ARG" > /run/version
+# Copy XFCE configuration files
+ENV XFCE_PERCHANNEL_XML_DIR=xfce-perchannel-xml
+COPY ./src/install/xfce/custom_ui.sh /usr/local/bin
+RUN chmod +x /usr/local/bin/custom_ui.sh 
+COPY ./src/xfce/start_xfce4.sh /usr/local/bin
+RUN chmod +x /usr/local/bin/start_xfce4.sh 
+COPY systemd/ui-config.service /etc/systemd/user/ui-config.service
+COPY  ./src/xfce/  /
+COPY systemd/${DESKTOP_PACKAGE}.service /etc/systemd/user/desktop.service
 
+# Set up background and icon images
+ARG BG_IMG=bg_focal.png
+RUN mkdir -p /usr/share/extra/backgrounds/
+RUN mkdir -p /usr/share/extra/icons/
+ADD /src/images/gomydesk_logo.png /usr/share/extra/backgrounds/gomydesk_logo.png
+ADD /src/images/bg_focal.png  /usr/share/extra/backgrounds/bg_focal.png
+ADD /src/images/$BG_IMG  /usr/share/extra/backgrounds/bg_default.png
+ADD /src/images/icon_ubuntu.png /usr/share/extra/icons/icon_ubuntu.png
+ADD /src/images/icon_ubuntu.png /usr/share/extra/icons/icon_default.png
+
+# Copy over the maximization script to our startup dir for use by app images.
+COPY ./src/install/maximize_script $STARTUPDIR/
+
+RUN systemctl --user --global enable desktop.service \
+  && systemctl disable display-manager \
+  && systemctl disable wpa_supplicant \
+  && systemctl disable ModemManager \
+  && systemctl --user --global enable ui-config.service
 VOLUME /storage
 EXPOSE 8006 3389
 

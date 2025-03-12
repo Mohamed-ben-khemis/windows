@@ -1,0 +1,13 @@
+[Unit]
+Description=Plasma
+After=display.service
+Requires=display.service
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/local/bin/start_xfce4.sh
+EnvironmentFile=/etc/default/gomydesk
+
+[Install]
+WantedBy=default.target
